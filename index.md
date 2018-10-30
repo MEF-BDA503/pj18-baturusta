@@ -4,4 +4,4 @@
 
 ## Week 3
 
-[Here](/files/odd.html) is my ODD Homework html file. 
+[Here](http://htmlpreview.github.io/?https://github.com/MEF-BDA503/pj18-baturusta/blob/master/odd.html) is my ODD Homework html file. 
