@@ -6,6 +6,6 @@
 
 [Here](files/AboutR.html) is my examples of R.
 
-[Analysis on EGM Dataset]
+[Analysis on EGM Dataset](files/EGM_03)
 
 ## Week 1
