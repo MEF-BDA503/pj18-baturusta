@@ -1,7 +1,7 @@
 ---
 title: "ODD_Analysis"
 author: "Batur Usta"
-date: "19 Kasım 2018"
+date: "19 Kasim 2018"
 output:
   html_document: default
   word_document: default
@@ -68,7 +68,7 @@ We'll need to delete the invalid row that contains a disclaimer. Also, there are
 
 ```{r check_rows}
 df <- subset(df, brand_name != df$brand_name[which(nchar(df$brand_name)> 20)])
-df$brand_name <- str_replace(df$brand_name, "ASTON MART�N", "ASTON MARTIN")
+df$brand_name <- str_replace(df$brand_name, "ASTON MARTÝN", "ASTON MARTIN")
 #Look for NA's 
 which(is.na(df$brand_name))
 ```
