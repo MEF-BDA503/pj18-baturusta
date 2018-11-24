@@ -1,0 +1,150 @@
+---
+title: "ODD_Analysis"
+author: "Batur Usta"
+date: "19 KasÄ±m 2018"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#At first, I should set the working directory to project dir and download the ODD data.
+setwd("C:/Users/08892/Desktop/ODD")
+df <- readRDS("car_data_aggregate.rds")
+#Next, let's load necessary libraries.
+library(tidyverse)
+library(dplyr)
+library(openair)
+library(lubridate)
+library(ggplot2)
+library(shiny)
+library(RColorBrewer)
+library(shiny)
+```
+
+## Exploration and Wrangling
+
+In order to do a proper analysis, I should look at the structure of the dataset. The dataset contains brand by brand retail sales of automobiles and commercial vehicles over a monthly basis in Turkey.
+
+```{r exp, echo=FALSE}
+str(df)
+```
+
+Here's a brief explanation of variables:
+-brand_name : Name of the automobile brand.
+-auto_dom   : Amount of sales of domestic product automobiles for the given month.
+-auto_imp   : Amount of sales of imported automobiles for the given month.
+-auto_total : Amount of total sales of automobiles for the given month.
+-comm_dom   : Amount of sales of domestic product commercial vehicles for the given month.
+-comm_imp   : Amount of sales of imported commercial vehicles for the given month.
+-comm_total : Amount of total sales of commercial vehicles for the given month.
+-total_dom  : Amount of sales of all domestic product vehicles for the given month.
+-total_imp  : Amount of sales of all imported vehicles for the given month.
+-total_total: Amount of total sales of all vehicles for the given month.
+-year       : Year
+-month      : Month
+
+And, this is how the dataset looks:
+
+```{r head, echo=FALSE}
+head(df)
+```
+
+```{r tail, echo=FALSE}
+tail(df)
+```
+
+The TOPLAM: row contains total amount of a certain month, since this datased is formed by fusing a number of datasets, there should be multiple TOPLAM: rows. I can do that myself so there is no need for such columns to exist. Let's check for more irregularities in brand_name column
+
+```{r}
+#Drop "TOPLAM:" row
+df <- subset(df, brand_name != "TOPLAM:")
+#Check for any more irregularities.
+#unique(df$brand_name) This prints in a weird format in html, so I'm commenting it out.
+```
+
+We'll need to delete the invalid row that contains a disclaimer. Also, there are two Aston Martin columns. Wonder if there are any more NA's or invalid rows?
+
+```{r check_rows}
+df <- subset(df, brand_name != df$brand_name[which(nchar(df$brand_name)> 20)])
+df$brand_name <- str_replace(df$brand_name, "ASTON MARTÝN", "ASTON MARTIN")
+#Look for NA's 
+which(is.na(df$brand_name))
+```
+
+Now the dataset is mostly tidy, I will make one more change, which will be merging year and month columns into one date column in Date format, it will make date based analysis easier.
+
+```{r wrangle}
+#Forming the date column in Date format.
+df$date <- paste(df$year,df$month,"01")
+df$date <- as.Date(df$date, "%Y %m %d")
+#Let's drop year and month columns.
+df$year <- NULL
+df$month <- NULL
+```
+
+## Analysis
+
+Let's start off with a simple graph, yearly total sales.
+
+```{r yearly}
+yearly <- df %>%
+  select(auto_total, comm_total, date) %>%
+  group_by(year=year(date)) %>%
+  summarize(auto_total = sum(auto_total), comm_total=sum(comm_total)) %>%
+  gather(Type, Sales, -year)
+#Plot Bar Graph
+ggplot(data=yearly, aes(x=year, y=Sales, fill=Type))+
+  geom_col()+
+  labs(title="Yearly Total Sales", x=NULL)
+  
+```
+
+There is a slight drop in sales in 2017. If the sales were equally distributed troughout the year, I would be able to say that sales in 2018 will be much worse. But before coming to such conclusion, I should check how were the car sales in the last quarter of the year, so that I may predict an outcome for 2018.
+
+```{r q3}
+#Create m_sales
+m_sales <- df %>%
+  select(total_total, date) %>%
+  group_by(year=year(date), month=month(date)) %>%
+  summarize(total=sum(total_total))
+#Plot Monthly Sales
+ggplot(data=m_sales, aes(x=month, y=total, group=year, color=as.factor(year)))+
+  geom_point()+
+  geom_smooth(se=FALSE)+
+  scale_y_continuous(breaks=signif(seq(min(m_sales$total),max(m_sales$total), 20000), digits=2))+
+  scale_x_continuous(breaks=c(1:12), labels=unique(month.abb[m_sales$month]))+
+  labs(title="Monthly Sales", color="Year", y="Sales")+
+  theme_bw()
+  
+```
+
+It appears that car sales skyrocket in the last quarter. 2018 shows a drastic drop in sales but there is a possibility that total sales will catch up to previous years by the end of the year. Next aspect I want to explore is the distribution of sales of vehicles by brand.
+
+```{r brand_sales}
+#Restructure the database for brand oriented analysis. Separate Commercial and Automobiles.
+bar <- df %>%
+  group_by(brand_name) %>%
+  select(brand_name, auto_total, comm_total) %>%
+  summarize(auto_total=sum(auto_total), comm_total=sum(comm_total)) %>%
+  arrange(desc(auto_total))
+auto_bar <- bar %>% 
+  filter(auto_total>cumsum(auto_total)*0.05) %>%
+  add_row(brand_name="OTHER", auto_total= (bar %>%
+  filter(auto_total<cumsum(auto_total)*0.05)%>%
+  summarize(t=sum(auto_total)))$t[1], comm_total=(bar %>%    filter(comm_total<cumsum(comm_total)*0.05)%>%summarize(t=sum(comm_total)))$t[1])%>%
+  gather(Type, Sales, -brand_name)
+
+#Plot Bar charts
+ggplot(auto_bar, aes(x=reorder(brand_name, Sales), y=Sales, fill=Type))+
+  theme_bw()+
+  geom_bar(stat="identity", position="dodge")+
+  labs(title="Automobile Sales by Brand", y="Total Car Sales", x="Brand")+
+  theme(plot.title = element_text(hjust=0.5),
+        axis.text.x = element_text(angle=60, vjust=0.7))
+```
+
+Renault, Volkswagen, Fiat and Hyundai are the popular brands for automobiles, Renault being the most popular. In commercial vehicles, Renault loses the lead to Ford while Fiat coming next. 
+
+
